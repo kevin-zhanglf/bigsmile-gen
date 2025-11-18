@@ -1,0 +1,30 @@
+# DiffuSeq Configuration
+
+# Training settings
+train:
+  epochs: 10
+  batch_size: 16
+  lr: 1.0e-4
+  gradient_clip: 1.0
+  log_interval: 50
+  save_interval: 1  # Save every N epochs
+
+# Model architecture
+model:
+  n_embd: 384
+  n_layer: 6
+  n_head: 6
+  max_seq_len: 512
+  dropout: 0.1
+
+# Diffusion settings
+diffusion:
+  num_steps: 2000  # Number of diffusion timesteps
+  schedule_type: cosine  # 'linear' or 'cosine'
+
+# Generation settings
+generation:
+  num_samples: 100
+  seq_len: 128
+  batch_size: 16
+  num_steps: 2000  # Can be reduced for faster generation (e.g., 100)

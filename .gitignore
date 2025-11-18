@@ -8,3 +8,6 @@ wandb/
 *.bin
 *.jsonl
 *.spm
+*.egg-info/
+build/
+dist/
