@@ -1,0 +1,178 @@
+name: BigSMILES Train & Sample
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_path:
+        description: "Path to BigSMILES CSV"
+        required: true
+        default: "data/bigsmiles.csv"
+      text_column:
+        description: "Column name for BigSMILES text"
+        required: true
+        default: "bigsmiles"
+      vocab_size:
+        description: "Tokenizer vocab size"
+        required: true
+        default: "8000"
+      model_name:
+        description: "HF model name for causal LM"
+        required: true
+        default: "gpt2"
+      block_size:
+        description: "Max sequence length"
+        required: true
+        default: "512"
+      batch_size:
+        description: "Per-device batch size"
+        required: true
+        default: "8"
+      epochs:
+        description: "Training epochs"
+        required: true
+        default: "3"
+      learning_rate:
+        description: "Learning rate"
+        required: true
+        default: "5e-5"
+      num_samples:
+        description: "Number of generated samples"
+        required: true
+        default: "100"
+      top_p:
+        description: "nucleus sampling p"
+        required: true
+        default: "0.95"
+      top_k:
+        description: "top-k sampling"
+        required: true
+        default: "50"
+      temperature:
+        description: "sampling temperature"
+        required: true
+        default: "0.9"
+      max_new_tokens:
+        description: "max new tokens for generation"
+        required: true
+        default: "256"
+      prefix:
+        description: "optional conditioning tokens prefix"
+        required: false
+        default: ""
+
+jobs:
+  train-and-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up micromamba (for RDKit & Python)
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-name: poly
+          create-args: >-
+            python=3.10
+            rdkit
+            pip
+          channels: conda-forge
+          cache-environment: true
+          cache-downloads: true
+          activate-environment: true
+
+      - name: Install Python dependencies
+        shell: bash -l {0}
+        run: |
+          python -V
+          pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Check dataset exists
+        id: datacheck
+        shell: bash -l {0}
+        run: |
+          if [ ! -f "${{ github.event.inputs.data_path }}" ]; then
+            echo "Dataset not found at ${{ github.event.inputs.data_path }}"; exit 1;
+          fi
+          echo "Dataset found."
+
+      - name: Train tokenizer
+        shell: bash -l {0}
+        run: |
+          python -m bigsmiles_gen.tokenizer.train_tokenizer \
+            --input "${{ github.event.inputs.data_path }}" \
+            --text_column "${{ github.event.inputs.text_column }}" \
+            --model_prefix artifacts/spm/bigsmiles_spm \
+            --vocab_size ${{ github.event.inputs.vocab_size }} \
+            --user_symbols "<BOS>,<EOS>,<PAD>,<MASK>,{,},[,],(,),.,-,=,#,>,<,$,*,:,/,+"
+
+      - name: Prepare LM config
+        shell: bash -l {0}
+        run: |
+          mkdir -p artifacts/lm/gpt2_bigsmiles
+          python - <<'PY'
+import yaml, os
+cfg = {
+  "seed": 42,
+  "model_name": "${{ github.event.inputs.model_name }}",
+  "block_size": int("${{ github.event.inputs.block_size }}"),
+  "batch_size": int("${{ github.event.inputs.batch_size }}"),
+  "epochs": int("${{ github.event.inputs.epochs }}"),
+  "learning_rate": float("${{ github.event.inputs.learning_rate }}"),
+  "warmup_ratio": 0.03,
+  "weight_decay": 0.01,
+  "gradient_accumulation_steps": 1,
+  "save_steps": 500,
+  "eval_steps": 500,
+  "logging_steps": 50,
+  "save_total_limit": 2,
+}
+os.makedirs("configs", exist_ok=True)
+with open("configs/_ci_lm.yaml","w") as f: yaml.safe_dump(cfg, f)
+print("Wrote configs/_ci_lm.yaml")
+PY
+
+      - name: Train LM
+        shell: bash -l {0}
+        run: |
+          python -m bigsmiles_gen.models.train_lm \
+            --tokenizer artifacts/spm/bigsmiles_spm.model \
+            --train "${{ github.event.inputs.data_path }}" \
+            --text_column "${{ github.event.inputs.text_column }}" \
+            --output_dir artifacts/lm/gpt2_bigsmiles \
+            --config configs/_ci_lm.yaml
+
+      - name: Constrained sampling
+        shell: bash -l {0}
+        run: |
+          mkdir -p artifacts/samples
+          python -m bigsmiles_gen.generate.sample_constrained \
+            --tokenizer artifacts/spm/bigsmiles_spm.model \
+            --model_dir artifacts/lm/gpt2_bigsmiles \
+            --num_samples ${{ github.event.inputs.num_samples }} \
+            --out_path artifacts/samples/samples.txt \
+            --top_p ${{ github.event.inputs.top_p }} \
+            --top_k ${{ github.event.inputs.top_k }} \
+            --temperature ${{ github.event.inputs.temperature }} \
+            --max_new_tokens ${{ github.event.inputs.max_new_tokens }} \
+            --prefix "${{ github.event.inputs.prefix }}"
+
+      - name: Upload artifacts (tokenizer)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tokenizer
+          path: artifacts/spm/
+
+      - name: Upload artifacts (lm model)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lm_model
+          path: artifacts/lm/gpt2_bigsmiles/
+
+      - name: Upload artifacts (samples)
+        uses: actions/upload-artifact@v4
+        with:
+          name: samples
+          path: artifacts/samples/samples.txt

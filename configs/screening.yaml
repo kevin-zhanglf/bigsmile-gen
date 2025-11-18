@@ -1,0 +1,7 @@
+rules:
+  Tg:
+    min: 300.0
+    max: 500.0
+  dielectric:
+    min: 2.0
+    max: 5.0

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+artifacts/
+wandb/
+*.log
+*.tmp
+*.pt
+*.bin
+*.jsonl
+*.spm

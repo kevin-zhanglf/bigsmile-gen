@@ -1,0 +1,14 @@
+torch>=2.2
+transformers>=4.43
+accelerate>=0.33.0
+datasets>=2.20.0
+sentencepiece>=0.1.99
+pandas>=2.2
+numpy>=1.26
+lark>=1.1.9
+tqdm>=4.66
+pyyaml>=6.0.1
+# Optional, for validation heuristics and monomer checks:
+rdkit-pypi>=2022.9.5
+# Optional, if a BigSMILES parser is available on PyPI; code handles absence gracefully:
+bigsmiles>=0.3.0
