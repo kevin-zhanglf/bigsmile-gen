@@ -1,0 +1,25 @@
+# Configuration for LLM-based BigSMILES evaluation
+
+# Provider: "openai" or "qwen"
+provider: openai
+
+# Model settings for OpenAI
+openai:
+  model: gpt-3.5-turbo  # Options: gpt-3.5-turbo, gpt-4, gpt-4-turbo
+  api_key_env: OPENAI_API_KEY  # Environment variable name for API key
+
+# Model settings for Qwen (Alibaba Cloud)
+qwen:
+  model: qwen-turbo  # Options: qwen-turbo, qwen-plus, qwen-max
+  api_key_env: DASHSCOPE_API_KEY  # Environment variable name for API key
+
+# Evaluation settings
+evaluation:
+  min_score: 0.6  # Minimum score threshold (0-1)
+  temperature: 0.3  # LLM temperature for evaluation
+  max_tokens: 500  # Maximum tokens in LLM response
+
+# Batch processing settings
+batch:
+  batch_size: 10  # Number of samples to evaluate in parallel (if supported)
+  delay_seconds: 0.5  # Delay between API calls to avoid rate limiting

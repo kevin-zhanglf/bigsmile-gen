@@ -12,3 +12,6 @@ pyyaml>=6.0.1
 rdkit-pypi>=2022.9.5
 # Optional, if a BigSMILES parser is available on PyPI; code handles absence gracefully:
 bigsmiles>=0.3.0
+# Optional, for LLM-based evaluation:
+openai>=1.0.0
+dashscope>=1.0.0
